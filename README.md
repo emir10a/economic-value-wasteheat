@@ -16,6 +16,7 @@ Diese Anwendung ermöglicht die Berechnung und Visualisierung des Nettobarwerts 
 - NumPy
 - Matplotlib
 - XlsxWriter
+- Openpyxl
 
 ## Installation
 
