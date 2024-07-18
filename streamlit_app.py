@@ -130,10 +130,10 @@ discount_rate = st.number_input(
 )
 standort = st.selectbox("Standort auswählen", [f"Standort {i}" for i in range(1, 14)])
 power_price_range = st.slider(
-    "Strompreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 200), step=25
+    "Strompreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 250), step=25
 )
 heating_price_range = st.slider(
-    "Fernwärmepreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 200), step=25
+    "Fernwärmepreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 250), step=25
 )
 skalierungsfaktor = st.slider(
     "Skalierungsfaktor für Wärmebedarfsprofil (%)",
@@ -147,7 +147,7 @@ calculate_button = st.button("Berechnen")
 end_button = st.button("Ende")
 
 if end_button:
-    st.write("Das Skript wurde beendet.")
+    st.markdown("Das Skript wurde beendet.")
     st.stop()
 
 if calculate_button:
@@ -169,9 +169,9 @@ if calculate_button:
     )
 
     sink_profile_path = os.path.join(sink_profile_dir, sink_profile_name)
-    st.write("Verwendete Profile:")
-    st.write(f"Abwärmeprofil: {input_profile_path}")
-    st.write(f"Eigenbedarfswärmeprofil: {sink_profile_path}")
+    st.markdown("Verwendete Profile:")
+    st.markdown(f"Abwärmeprofil: {input_profile_path}")
+    st.markdown(f"Eigenbedarfswärmeprofil: {sink_profile_path}")
 
     try:
         input_profile = pd.read_excel(input_profile_path)
@@ -213,19 +213,37 @@ if calculate_button:
     # Skaliere das Quellprofil
     sink_profile = skaliere_profil(sink_profile, skalierungsfaktor)
 
-    power_prices = np.arange(power_price_range[0], power_price_range[1] + 1, 25)
+    power_prices = np.arange(power_price_range[0], power_price_range[1] + 1, 25)[
+        ::-1
+    ]  # Reverse order
     heating_prices = np.arange(heating_price_range[0], heating_price_range[1] + 1, 25)
-    st.text("NPV = -Investition + summierte Werte für jeden Tag")
-    st.text("Summenwerte... summierte Werte für jeden Tag")
-    st.text(
-        "für Summenwerte, wenn vorhandene Abwärme > Wärmebedarf in gegebener Stunde/Tag"
+    st.markdown(
+        "**Annutätenfaktor** = ((1 + Abzinsungssatz) ^ Jahre &times; Abzinsungssatz) / ((1 + Abzinsungssatz) ^ Jahre - 1)"
     )
-    st.text("Summenwerte = ∑(Fernwärmepreis*Wärmebedarf - Strompreis*Wärmebedarf/COP)")
-    st.text(
-        "für Summenwerte Formel, wenn vorhandene Abwärme < Wärmebedarf in gegebener Stunde/Tag"
+    st.markdown(
+        "**Angepasste Investition** = Kosten pro kW &times; Maximale Kapazität &times; Annuitätenfaktor"
     )
-    st.text("∑((Strompreis*Abwärme/COP) + Differenz*Fernwärmepreis)")
-    st.text("Differenz = Abwärme - Wärmebedarf")
+    st.markdown("**NPV** = -Investition + Summenwerte")
+    st.markdown("Summenwerte... summierte Werte für jeden Tag")
+    st.markdown(
+        "Formel für Summenwerte, wenn vorhandene Abwärme > Wärmebedarf an gegebenem Tag:"
+    )
+    st.markdown(
+        "**Summenwerte** = ∑(Fernwärmepreis &times; Wärmebedarf - Strompreis &times; Wärmebedarf &divide; COP)"
+    )
+    st.markdown(
+        "Desto größer der Summenwert, desto größer der ökonomische Vorteil der Wärmepumpe über dem Fernwärmebezug"
+    )
+    st.markdown(
+        "Formel für Summenwerte, wenn vorhandene Abwärme < Wärmebedarf an gegebenem Tag:"
+    )
+    st.markdown(
+        "**Summenwerte** = ∑((Strompreis &times; Abwärme &divide; COP) + Differenz &times; Fernwärmepreis)"
+    )
+    st.markdown("**Differenz** = Abwärme - Wärmebedarf")
+    st.markdown(
+        "Für den Fall, dass die Abwärme nicht den Bedarf an einem Tag decken kann, wird nur die Differenz mit dem Fernwärmepreis multipliziert und mindert dadurch den ökonomischen Wert nur um den Wert der Differenz"
+    )
     npv_matrix = np.zeros((len(heating_prices), len(power_prices)))
     max_capacity = 0
     adjusted_investment = 0
@@ -233,6 +251,8 @@ if calculate_button:
     district_heating_costs_matrix = np.zeros((len(heating_prices), len(power_prices)))
     roi_matrix = np.zeros((len(heating_prices), len(power_prices)))
 
+    first_positive_npv = None
+    first_positive_roi = None
     for i, heating_price in enumerate(heating_prices):
         for j, power_price in enumerate(power_prices):
             (
@@ -258,6 +278,10 @@ if calculate_button:
             electricity_costs_matrix[i, j] = round(total_electricity_costs)
             district_heating_costs_matrix[i, j] = round(total_district_heating_costs)
             roi_matrix[i, j] = round(roi * 100, 2)
+            if npv_value >= 0 and first_positive_npv is None:
+                first_positive_npv = (power_price, heating_price)
+            if roi >= 0 and first_positive_roi is None:
+                first_positive_roi = (power_price, heating_price)
             if max_capacity < max_cap:
                 max_capacity = max_cap
                 adjusted_investment = adj_inv
@@ -267,6 +291,8 @@ if calculate_button:
     fig.colorbar(cax)
 
     ax.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax.xaxis.set_ticks_position("top")
+    ax.xaxis.set_label_position("top")
     ax.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
 
     plt.xlabel("Strompreis (€/MWh)", fontsize=14)
@@ -283,83 +309,31 @@ if calculate_button:
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=14,
             )
 
     st.pyplot(fig)
+    if first_positive_npv:
+        st.markdown(
+            f"Der erste positive NPV wurde bei einem Strompreis von **{first_positive_npv[0]} €/MWh** und einem Fernwärmepreis von **{first_positive_npv[1]} €/MWh** gefunden."
+        )
+    else:
+        st.markdown("Es wurde keine positive NPV im gegebenen Bereich gefunden.")
 
-    st.subheader("Kostenparameter")
-    st.write(
-        "Annutätenfaktor = ((1 + Abzinsungssatz) ^ Jahre * Abzinsungssatz) / ((1 + Abzinsungssatz) ^ Jahre - 1)"
-    )
-    st.write(f"Annuitätenfaktor: {annuity_factor:.4f}")
-    st.write(f"Maximale Kapazität im Jahr: {max_capacity:.0f} kW")
-    st.write(
-        "Angepasste Investition = Kosten pro kW * Maximale Kapazität * Annuitätenfaktor"
-    )
-    st.write(f"Angepasste Investition: {adjusted_investment:.0f} Euro")
-    st.subheader("jährliche Stromkosten für jede Preis-Kombination")
-    fig2, ax2 = plt.subplots(figsize=(10, 8))
-    cax2 = ax2.matshow(electricity_costs_matrix, interpolation="nearest", cmap="YlGnBu")
-    fig2.colorbar(cax2)
-
-    ax2.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
-    ax2.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
-
-    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
-    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
-    plt.title("Stromkosten Heatmap", fontsize=14)
-
-    for i in range(len(heating_prices)):
-        for j in range(len(power_prices)):
-            ax2.text(
-                j,
-                i,
-                f"{electricity_costs_matrix[i, j]:.0f}",
-                ha="center",
-                va="center",
-                color="black",
-                fontsize=14,
-            )
-
-    st.pyplot(fig2)
-    st.subheader("jähtliche Fernwärmekosten für jede Preis-Kombination")
-    fig3, ax3 = plt.subplots(figsize=(10, 8))
-    cax3 = ax3.matshow(
-        district_heating_costs_matrix, interpolation="nearest", cmap="YlGnBu"
-    )
-    fig3.colorbar(cax3)
-
-    ax3.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
-    ax3.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
-
-    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
-    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
-    plt.title("Fernwärmekosten Heatmap", fontsize=14)
-
-    for i in range(len(heating_prices)):
-        for j in range(len(power_prices)):
-            ax3.text(
-                j,
-                i,
-                f"{district_heating_costs_matrix[i, j]:.0f}",
-                ha="center",
-                va="center",
-                color="black",
-                fontsize=14,
-            )
-
-    st.pyplot(fig3)
+    st.subheader("Kosten")
+    st.markdown(f"Annuitätenfaktor: **{annuity_factor:.4f}**")
+    st.markdown(f"Maximale Kapazität im Jahr: **{max_capacity:.0f} kW**")
+    st.markdown(f"Angepasste Investition: **{adjusted_investment:.0f} Euro**")
     st.subheader("Return On Invest -  Heatmap")
-    st.text("Der ROI wird in Prozent angegeben.")
-    st.text("ROI = (NPV - Investition) / Angepasste Investition")
+    st.markdown("Der ROI wird in Prozent angegeben.")
+    st.markdown("**ROI** = (NPV - ang. Investition) &divide; ang. Investition")
     fig4, ax4 = plt.subplots(figsize=(10, 8))
     cax4 = ax4.matshow(roi_matrix, interpolation="nearest", cmap="YlGnBu")
     fig4.colorbar(cax4)
 
     ax4.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
     ax4.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
-
+    ax4.xaxis.set_ticks_position("top")
+    ax4.xaxis.set_label_position("top")
     plt.xlabel("Strompreis (€/MWh)", fontsize=14)
     plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
     plt.title("ROI Heatmap", fontsize=14)
@@ -373,51 +347,23 @@ if calculate_button:
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=14,
             )
 
     st.pyplot(fig4)
+    if first_positive_roi:
+        st.markdown(
+            f"Der erste positive NPV wurde bei einem Strompreis von **{first_positive_roi[0]} €/MWh** und einem Fernwärmepreis von **{first_positive_roi[1]} €/MWh** gefunden."
+        )
+    else:
+        st.markdown("Es wurde keine positive NPV im gegebenen Bereich gefunden.")
 
-    # Berechne Break-even-Preise
-    break_even_prices = pd.DataFrame(
-        {
-            "Strompreis (€/MWh)": power_prices,
-            "Break-even Fernwärmepreis (€/MWh)": power_prices * cop,
-        }
-    )
-
-    st.subheader("Break-even Preise")
-    st.dataframe(break_even_prices)
-
-    # Zeige die Kombination mit dem höchsten Strompreis
-    höchster_strompreis = break_even_prices["Strompreis (€/MWh)"].max()
-    entsprechender_heizpreis = break_even_prices.loc[
-        break_even_prices["Strompreis (€/MWh)"] == höchster_strompreis,
-        "Break-even Fernwärmepreis (€/MWh)",
-    ].values[0]
-
-    st.text(
-        "Die Preis-Kombination mit dem höchsten Fernwärmepreis liefert diese Preise:"
-    )
-    st.write(f"Strompreis: {höchster_strompreis} €/MWh")
-    st.write(f"Break-even Fernwärmepreis: {entsprechender_heizpreis} €/MWh")
-
-    # Plot Break-even-Preise
-    fig5, ax5 = plt.subplots()
-    ax5.plot(
-        break_even_prices["Strompreis (€/MWh)"],
-        break_even_prices["Break-even Fernwärmepreis (€/MWh)"],
-    )
-    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
-    plt.ylabel("Break-even Fernwärmepreise (€/MWh)", fontsize=14)
-    plt.title("Break-even Fernwärmepreise vs Strompreise", fontsize=14)
-    st.pyplot(fig5)
     st.subheader("Jährliche thermische Abwärme- und Wärmebedarfsprofile")
-    st.text("Die Profile zeigen die thermische Last in kWh pro Tag.")
-    st.text(
+    st.markdown("Die Profile zeigen die thermische Last in kWh pro Tag.")
+    st.markdown(
         "Das Differenzprofil ergibt sich aus Differenz Abwärmeprofil - Wärmebedarfsprofil"
     )
-    st.text("Tag 1 ist der 10.Oktober 2022 und Tag 365 ist der 9.Oktober 2023")
+    st.markdown("Tag 1 ist der 10.Oktober 2022 und Tag 365 ist der 9.Oktober 2023")
+    st.markdown(f"Die untere Abbildung zeigt die Profile für: **{standort}**")
     # Plot Profile
     input_profile["Mismatch"] = (
         input_profile["Quellkapazität"] - sink_profile["Senkenkapazität"]
@@ -453,8 +399,63 @@ if calculate_button:
 
     ax6.set_xlabel("Zeit" if zeitperiode == "Hour" else "Tag", fontsize=14)
     ax6.set_ylabel("Thermische Last (kWh)", fontsize=14)
+    ax6.xaxis.set_ticks_position("top")
+    ax6.xaxis.set_label_position("top")
     ax6.legend()
     plt.title("Abwärme-, Wärmebedarf- und Differenz-Profile", fontsize=14)
 
     st.pyplot(fig6)
+    st.subheader("Jährliche Stromkosten für jede Preis-Kombination")
+    fig2, ax2 = plt.subplots(figsize=(10, 8))
+    cax2 = ax2.matshow(electricity_costs_matrix, interpolation="nearest", cmap="YlGnBu")
+    fig2.colorbar(cax2)
+
+    ax2.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax2.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
+    ax2.xaxis.set_ticks_position("top")
+    ax2.xaxis.set_label_position("top")
+
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("Stromkosten Heatmap", fontsize=14)
+
+    for i in range(len(heating_prices)):
+        for j in range(len(power_prices)):
+            ax2.text(
+                j,
+                i,
+                f"{electricity_costs_matrix[i, j]:.0f}",
+                ha="center",
+                va="center",
+                color="black",
+            )
+
+    st.pyplot(fig2)
+    st.subheader("Jährliche Fernwärmekosten für jede Preis-Kombination")
+    fig3, ax3 = plt.subplots(figsize=(10, 8))
+    cax3 = ax3.matshow(
+        district_heating_costs_matrix, interpolation="nearest", cmap="YlGnBu"
+    )
+    fig3.colorbar(cax3)
+
+    ax3.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax3.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
+    ax3.xaxis.set_ticks_position("top")
+    ax3.xaxis.set_label_position("top")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("Fernwärmekosten Heatmap", fontsize=14)
+
+    for i in range(len(heating_prices)):
+        for j in range(len(power_prices)):
+            ax3.text(
+                j,
+                i,
+                f"{district_heating_costs_matrix[i, j]:.0f}",
+                ha="center",
+                va="center",
+                color="black",
+            )
+
+    st.pyplot(fig3)
     # -----------------------------------------------------------------------------------------------
