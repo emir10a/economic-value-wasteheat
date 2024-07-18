@@ -47,9 +47,9 @@ standard_tagesprofil_xlsx = konvertiere_df_zu_xlsx(standard_tagesprofil)
 standard_stundenprofil_xlsx = konvertiere_df_zu_xlsx(standard_stundenprofil)
 
 
-# Funktion zur Skalierung des Quellprofils
+# Funktion zur Skalierung des Senkenprofils
 def skaliere_profil(profil, faktor):
-    profil["Quellkapazität"] = profil["Quellkapazität"] * (faktor / 100)
+    profil["Senkenkapazität"] = profil["Senkenkapazität"] * (faktor / 100)
     return profil
 
 
@@ -119,7 +119,7 @@ st.title("Wärmebedarf und Strompreis Variationen - NPV Heatmap")
 
 cop = st.number_input("Leistungszahl (COP)", min_value=1.0, step=0.1, value=2.5)
 investment_per_kw = st.number_input(
-    "Investition pro kW", min_value=0.0, step=1000.0, value=2000.0
+    "Investition pro kW", min_value=0.0, step=100.0, value=2000.0
 )
 jahre = st.number_input("Jahre", min_value=1, step=1, value=15)
 discount_rate = st.number_input(
@@ -134,7 +134,7 @@ heating_price_range = st.slider(
     "Fernwärmepreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 200), step=25
 )
 skalierungsfaktor = st.slider(
-    "Skalierungsfaktor für Quellprofil (%)",
+    "Skalierungsfaktor für Wärmebedarfsprofil (%)",
     min_value=0,
     max_value=100,
     value=100,
