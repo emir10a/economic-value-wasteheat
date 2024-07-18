@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from io import BytesIO
+import os
 
 
 # Erstelle Standardprofile
@@ -10,20 +11,16 @@ def erstelle_standardprofile():
     tage = pd.DataFrame(
         {
             "day": range(1, 366),
-            "Quellkapazität": np.random.rand(365) * 100
-            + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
-            "Senkenkapazität": np.random.rand(365)
-            * 100,  # Zufällige Kapazitäten für das Senkenprofil
+            "Quellkapazität": np.random.rand(365) * 100 + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
+            "Senkenkapazität": np.random.rand(365) * 100,  # Zufällige Kapazitäten für das Senkenprofil
         }
     )
 
     stunden = pd.DataFrame(
         {
             "Hour": range(1, 8761),
-            "Quellkapazität": np.random.rand(8760) * 100
-            + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
-            "Senkenkapazität": np.random.rand(8760)
-            * 100,  # Zufällige Kapazitäten für das Senkenprofil
+            "Quellkapazität": np.random.rand(8760) * 100 + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
+            "Senkenkapazität": np.random.rand(8760) * 100,  # Zufällige Kapazitäten für das Senkenprofil
         }
     )
 
@@ -99,7 +96,7 @@ def berechne_npv(
             ) + mismatch * heizpreis / 1000
 
         npv += perioden_npv
-        total_electricity_costs += wärme_pumpe / cop * power_price / 1000
+        total_electricity_costs += wärme_pumpe / cop * strompreis / 1000
         total_district_heating_costs += fernwärme_kosten
 
     roi = (npv - angepasste_investition) / angepasste_investition
@@ -125,8 +122,7 @@ jahre = st.number_input("Jahre", min_value=1, step=1, value=15)
 discount_rate = st.number_input(
     "Abzinsungssatz", min_value=0.0, max_value=1.0, step=0.01, value=0.05
 )
-input_profile_file = st.file_uploader("Quellprofil hochladen (xlsx)", type=["xlsx"])
-sink_profile_file = st.file_uploader("Senkenprofil hochladen (xlsx)", type=["xlsx"])
+standort = st.selectbox("Standort auswählen", [f"Standort {i}" for i in range(1, 14)])
 power_price_range = st.slider(
     "Strompreisspanne (€/MWh)", min_value=0, max_value=500, value=(50, 200), step=25
 )
@@ -164,25 +160,25 @@ if end_button:
     st.stop()
 
 if calculate_button:
-    if input_profile_file:
-        input_profile = pd.read_excel(input_profile_file)
-        input_profile.rename(columns={"capacity": "Quellkapazität"}, inplace=True)
-    else:
-        input_profile = (
-            standard_tagesprofil
-            if "day" in standard_tagesprofil.columns
-            else standard_stundenprofil
-        )
+    # Laden der Profile basierend auf der Auswahl des Standorts
+    input_profile_path = os.path.join("output_sources_daily", f"daily_hourly_profile_{standort.split()[-1]}.xlsx")
+    
+    # Dynamisches Finden des Sink Profils
+    sink_profile_dir = "output_sinks_daily"
+    sink_profiles = os.listdir(sink_profile_dir)
+    sink_profile_name = next((name for name in sink_profiles if name.startswith(f"daily_{standort.split()[-1]}_")), None)
+    
+    if not sink_profile_name:
+        st.error("Kein passendes Senkenprofil gefunden.")
+        st.stop()
+    
+    sink_profile_path = os.path.join(sink_profile_dir, sink_profile_name)
 
-    if sink_profile_file:
-        sink_profile = pd.read_excel(sink_profile_file)
-        sink_profile.rename(columns={"capacity": "Senkenkapazität"}, inplace=True)
-    else:
-        sink_profile = (
-            standard_tagesprofil
-            if "day" in standard_tagesprofil.columns
-            else standard_stundenprofil
-        )
+    input_profile = pd.read_excel(input_profile_path)
+    input_profile.rename(columns={"capacity": "Quellkapazität"}, inplace=True)
+
+    sink_profile = pd.read_excel(sink_profile_path)
+    sink_profile.rename(columns={"capacity": "Senkenkapazität"}, inplace=True)
 
     if "day" in input_profile.columns and "day" in sink_profile.columns:
         zeitperiode = "day"
@@ -308,7 +304,7 @@ if calculate_button:
             ax3.text(
                 j,
                 i,
-                f"{district_heating_costs_matrix[i, j]:.0f}",
+                f"{district_heating_costs_matrix[i, j]:0f}",
                 ha="center",
                 va="center",
                 color="black",
@@ -413,3 +409,4 @@ if calculate_button:
 
     st.pyplot(fig6)
     # -----------------------------------------------------------------------------------------------
+
