@@ -137,21 +137,6 @@ skalierungsfaktor = st.slider(
     step=10,
 )
 
-# Download-Links für Standardprofile bereitstellen
-st.markdown("### Standardprofile herunterladen")
-st.download_button(
-    label="Tagesprofil herunterladen",
-    data=standard_tagesprofil_xlsx,
-    file_name="standard_tagesprofil.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
-st.download_button(
-    label="Stundenprofil herunterladen",
-    data=standard_stundenprofil_xlsx,
-    file_name="standard_stundenprofil.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
-
 calculate_button = st.button("Berechnen")
 end_button = st.button("Ende")
 
