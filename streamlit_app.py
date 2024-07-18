@@ -169,7 +169,7 @@ if calculate_button:
     )
 
     sink_profile_path = os.path.join(sink_profile_dir, sink_profile_name)
-    st.markdown("Verwendete Profile:")
+    st.subheader("Verwendete Profile:")
     st.markdown(f"Abwärmeprofil: {input_profile_path}")
     st.markdown(f"Eigenbedarfswärmeprofil: {sink_profile_path}")
 
@@ -217,6 +217,7 @@ if calculate_button:
         ::-1
     ]  # Reverse order
     heating_prices = np.arange(heating_price_range[0], heating_price_range[1] + 1, 25)
+    st.subheader("Berechnung der Werte:")
     st.markdown(
         "**Annutätenfaktor** = ((1 + Abzinsungssatz) ^ Jahre &times; Abzinsungssatz) / ((1 + Abzinsungssatz) ^ Jahre - 1)"
     )
@@ -226,7 +227,7 @@ if calculate_button:
     st.markdown("**NPV** = -Investition + Summenwerte")
     st.markdown("Summenwerte... summierte Werte für jeden Tag")
     st.markdown(
-        "Formel für Summenwerte, wenn vorhandene Abwärme > Wärmebedarf an gegebenem Tag:"
+        "Formel für Summenwerte, **wenn vorhandene Abwärme > Wärmebedarf an gegebenem Tag:**"
     )
     st.markdown(
         "**Summenwerte** = ∑(Fernwärmepreis &times; Wärmebedarf - Strompreis &times; Wärmebedarf &divide; COP)"
@@ -235,7 +236,7 @@ if calculate_button:
         "Desto größer der Summenwert, desto größer der ökonomische Vorteil der Wärmepumpe über dem Fernwärmebezug"
     )
     st.markdown(
-        "Formel für Summenwerte, wenn vorhandene Abwärme < Wärmebedarf an gegebenem Tag:"
+        "Formel für Summenwerte, **wenn vorhandene Abwärme < Wärmebedarf an gegebenem Tag:**"
     )
     st.markdown(
         "**Summenwerte** = ∑((Strompreis &times; Abwärme &divide; COP) + Differenz &times; Fernwärmepreis)"
@@ -297,7 +298,6 @@ if calculate_button:
 
     plt.xlabel("Strompreis (€/MWh)", fontsize=14)
     plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
-    plt.title("NPV Heatmap", fontsize=14)
 
     # Heatmap mit gerundeten Werten und kleinerer Schriftgröße annotieren
     for i in range(len(heating_prices)):
@@ -310,7 +310,7 @@ if calculate_button:
                 va="center",
                 color="black",
             )
-
+    st.subheader("Net Present Value - Heatmap")
     st.pyplot(fig)
     if first_positive_npv:
         st.markdown(
@@ -319,13 +319,17 @@ if calculate_button:
     else:
         st.markdown("Es wurde keine positive NPV im gegebenen Bereich gefunden.")
 
-    st.subheader("Kosten")
+    st.subheader("Investitionskosten")
     st.markdown(f"Annuitätenfaktor: **{annuity_factor:.4f}**")
     st.markdown(f"Maximale Kapazität im Jahr: **{max_capacity:.0f} kW**")
+    st.markdown(f"Investiton pro kW: **{investment_per_kw:.0f} Euro**")
+    st.markdown(f"Investitionskosten: **{investment_per_kw * max_capacity:.0f} Euro**")
     st.markdown(f"Angepasste Investition: **{adjusted_investment:.0f} Euro**")
     st.subheader("Return On Invest -  Heatmap")
     st.markdown("Der ROI wird in Prozent angegeben.")
-    st.markdown("**ROI** = (NPV - ang. Investition) &divide; ang. Investition")
+    st.markdown(
+        "**ROI** = (NPV - angepasste Investition) &divide; angepasste Investition"
+    )
     fig4, ax4 = plt.subplots(figsize=(10, 8))
     cax4 = ax4.matshow(roi_matrix, interpolation="nearest", cmap="YlGnBu")
     fig4.colorbar(cax4)
@@ -360,7 +364,7 @@ if calculate_button:
     st.subheader("Jährliche thermische Abwärme- und Wärmebedarfsprofile")
     st.markdown("Die Profile zeigen die thermische Last in kWh pro Tag.")
     st.markdown(
-        "Das Differenzprofil ergibt sich aus Differenz Abwärmeprofil - Wärmebedarfsprofil"
+        "Das Differenzprofil ergibt sich aus Abwärmeprofil - Wärmebedarfsprofil"
     )
     st.markdown("Tag 1 ist der 10.Oktober 2022 und Tag 365 ist der 9.Oktober 2023")
     st.markdown(f"Die untere Abbildung zeigt die Profile für: **{standort}**")
