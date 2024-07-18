@@ -1,3 +1,5 @@
+from tkinter import font
+from matplotlib.pylab import f
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,16 +13,20 @@ def erstelle_standardprofile():
     tage = pd.DataFrame(
         {
             "day": range(1, 366),
-            "Quellkapazität": np.random.rand(365) * 100 + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
-            "Senkenkapazität": np.random.rand(365) * 100,  # Zufällige Kapazitäten für das Senkenprofil
+            "Quellkapazität": np.random.rand(365) * 100
+            + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
+            "Senkenkapazität": np.random.rand(365)
+            * 100,  # Zufällige Kapazitäten für das Senkenprofil
         }
     )
 
     stunden = pd.DataFrame(
         {
             "Hour": range(1, 8761),
-            "Quellkapazität": np.random.rand(8760) * 100 + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
-            "Senkenkapazität": np.random.rand(8760) * 100,  # Zufällige Kapazitäten für das Senkenprofil
+            "Quellkapazität": np.random.rand(8760) * 100
+            + 50,  # Zufällige Kapazitäten für das Quellprofil mit einem Offset
+            "Senkenkapazität": np.random.rand(8760)
+            * 100,  # Zufällige Kapazitäten für das Senkenprofil
         }
     )
 
@@ -146,18 +152,49 @@ if end_button:
 
 if calculate_button:
     # Laden der Profile basierend auf der Auswahl des Standorts
-    input_profile_path = os.path.join("output_sources_daily", f"daily_hourly_profile_{standort.split()[-1]}.xlsx")
-    
+    input_profile_path = os.path.join(
+        "output_sources_daily", f"daily_hourly_profile_{standort.split()[-1]}.xlsx"
+    )
+
     # Dynamisches Finden des Sink Profils
     sink_profile_dir = "output_sinks_daily"
     sink_profiles = os.listdir(sink_profile_dir)
-    sink_profile_name = next((name for name in sink_profiles if name.startswith(f"daily_{standort.split()[-1]}_*")), None)
-    
-    if not sink_profile_name:
-        st.error("Kein passendes Senkenprofil gefunden.")
-        st.stop()
-    
+    sink_profile_name = next(
+        (
+            name
+            for name in sink_profiles
+            if name.startswith(f"daily_{standort.split()[-1]}_")
+        ),
+        None,
+    )
+
     sink_profile_path = os.path.join(sink_profile_dir, sink_profile_name)
+    st.write("Verwendete Profile:")
+    st.write(f"Abwärmeprofil: {input_profile_path}")
+    st.write(f"Eigenbedarfswärmeprofil: {sink_profile_path}")
+
+    try:
+        input_profile = pd.read_excel(input_profile_path)
+        input_profile.rename(columns={"capacity": "Quellkapazität"}, inplace=True)
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden des Quellprofils: {e}")
+        st.stop()
+
+    try:
+        sink_profile = pd.read_excel(sink_profile_path)
+        sink_profile.rename(columns={"capacity": "Senkenkapazität"}, inplace=True)
+    except Exception as e:
+        st.error(f"Fehler beim Laden des Senkenprofils: {e}")
+        st.stop()
+
+    if "day" in input_profile.columns and "day" in sink_profile.columns:
+        zeitperiode = "day"
+    elif "Hour" in input_profile.columns and "Hour" in sink_profile.columns:
+        zeitperiode = "Hour"
+    else:
+        st.error("Die Profile müssen entweder 'day' oder 'Hour' als Spalte enthalten.")
+        st.stop()
 
     input_profile = pd.read_excel(input_profile_path)
     input_profile.rename(columns={"capacity": "Quellkapazität"}, inplace=True)
@@ -174,11 +211,21 @@ if calculate_button:
         st.stop()
 
     # Skaliere das Quellprofil
-    input_profile = skaliere_profil(input_profile, skalierungsfaktor)
+    sink_profile = skaliere_profil(sink_profile, skalierungsfaktor)
 
     power_prices = np.arange(power_price_range[0], power_price_range[1] + 1, 25)
     heating_prices = np.arange(heating_price_range[0], heating_price_range[1] + 1, 25)
-
+    st.text("NPV = -Investition + summierte Werte für jeden Tag")
+    st.text("Summenwerte... summierte Werte für jeden Tag")
+    st.text(
+        "für Summenwerte, wenn vorhandene Abwärme > Wärmebedarf in gegebener Stunde/Tag"
+    )
+    st.text("Summenwerte = ∑(Fernwärmepreis*Wärmebedarf - Strompreis*Wärmebedarf/COP)")
+    st.text(
+        "für Summenwerte Formel, wenn vorhandene Abwärme < Wärmebedarf in gegebener Stunde/Tag"
+    )
+    st.text("∑((Strompreis*Abwärme/COP) + Differenz*Fernwärmepreis)")
+    st.text("Differenz = Abwärme - Wärmebedarf")
     npv_matrix = np.zeros((len(heating_prices), len(power_prices)))
     max_capacity = 0
     adjusted_investment = 0
@@ -219,12 +266,12 @@ if calculate_button:
     cax = ax.matshow(npv_matrix, interpolation="nearest", cmap="YlGnBu")
     fig.colorbar(cax)
 
-    ax.set_xticklabels([""] + list(map(str, power_prices)))
-    ax.set_yticklabels([""] + list(map(str, heating_prices)))
+    ax.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
 
-    plt.xlabel("Strompreis (€/MWh)")
-    plt.ylabel("Heizpreis (€/MWh)")
-    plt.title("NPV Heatmap")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("NPV Heatmap", fontsize=14)
 
     # Heatmap mit gerundeten Werten und kleinerer Schriftgröße annotieren
     for i in range(len(heating_prices)):
@@ -236,26 +283,32 @@ if calculate_button:
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=8,
+                fontsize=14,
             )
 
     st.pyplot(fig)
 
-    st.subheader("Maximale Kapazität und Angepasste Investition")
+    st.subheader("Kostenparameter")
+    st.write(
+        "Annutätenfaktor = ((1 + Abzinsungssatz) ^ Jahre * Abzinsungssatz) / ((1 + Abzinsungssatz) ^ Jahre - 1)"
+    )
     st.write(f"Annuitätenfaktor: {annuity_factor:.4f}")
-    st.write(f"Maximale Kapazität: {max_capacity:.2f} kW")
-    st.write(f"Angepasste Investition: {adjusted_investment:.2f} Euro")
-
+    st.write(f"Maximale Kapazität im Jahr: {max_capacity:.0f} kW")
+    st.write(
+        "Angepasste Investition = Kosten pro kW * Maximale Kapazität * Annuitätenfaktor"
+    )
+    st.write(f"Angepasste Investition: {adjusted_investment:.0f} Euro")
+    st.subheader("jährliche Stromkosten für jede Preis-Kombination")
     fig2, ax2 = plt.subplots(figsize=(10, 8))
     cax2 = ax2.matshow(electricity_costs_matrix, interpolation="nearest", cmap="YlGnBu")
     fig2.colorbar(cax2)
 
-    ax2.set_xticklabels([""] + list(map(str, power_prices)))
-    ax2.set_yticklabels([""] + list(map(str, heating_prices)))
+    ax2.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax2.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
 
-    plt.xlabel("Strompreis (€/MWh)")
-    plt.ylabel("Fernwärmepreis (€/MWh)")
-    plt.title("Stromkosten Heatmap")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("Stromkosten Heatmap", fontsize=14)
 
     for i in range(len(heating_prices)):
         for j in range(len(power_prices)):
@@ -266,59 +319,61 @@ if calculate_button:
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=8,
+                fontsize=14,
             )
 
     st.pyplot(fig2)
-
+    st.subheader("jähtliche Fernwärmekosten für jede Preis-Kombination")
     fig3, ax3 = plt.subplots(figsize=(10, 8))
     cax3 = ax3.matshow(
         district_heating_costs_matrix, interpolation="nearest", cmap="YlGnBu"
     )
     fig3.colorbar(cax3)
 
-    ax3.set_xticklabels([""] + list(map(str, power_prices)))
-    ax3.set_yticklabels([""] + list(map(str, heating_prices)))
+    ax3.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax3.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
 
-    plt.xlabel("Strompreis (€/MWh)")
-    plt.ylabel("Fernwärmepreis (€/MWh)")
-    plt.title("Fernwärmekosten Heatmap")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("Fernwärmekosten Heatmap", fontsize=14)
 
     for i in range(len(heating_prices)):
         for j in range(len(power_prices)):
             ax3.text(
                 j,
                 i,
-                f"{district_heating_costs_matrix[i, j]:0f}",
+                f"{district_heating_costs_matrix[i, j]:.0f}",
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=8,
+                fontsize=14,
             )
 
     st.pyplot(fig3)
-
+    st.subheader("Return On Invest -  Heatmap")
+    st.text("Der ROI wird in Prozent angegeben.")
+    st.text("ROI = (NPV - Investition) / Angepasste Investition")
     fig4, ax4 = plt.subplots(figsize=(10, 8))
     cax4 = ax4.matshow(roi_matrix, interpolation="nearest", cmap="YlGnBu")
     fig4.colorbar(cax4)
 
-    ax4.set_xticklabels([""] + list(map(str, power_prices)))
-    ax4.set_yticklabels([""] + list(map(str, heating_prices)))
+    ax4.set_xticklabels([""] + list(map(str, power_prices)), fontsize=14)
+    ax4.set_yticklabels([""] + list(map(str, heating_prices)), fontsize=14)
 
-    plt.xlabel("Strompreis (€/MWh)")
-    plt.ylabel("Fernwärmepreis (€/MWh)")
-    plt.title("ROI Heatmap")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Fernwärmepreis (€/MWh)", fontsize=14)
+    plt.title("ROI Heatmap", fontsize=14)
 
     for i in range(len(heating_prices)):
         for j in range(len(power_prices)):
             ax4.text(
                 j,
                 i,
-                f"{roi_matrix[i, j]:.2f}%",
+                f"{roi_matrix[i, j]:.0f}%",
                 ha="center",
                 va="center",
                 color="black",
-                fontsize=8,
+                fontsize=14,
             )
 
     st.pyplot(fig4)
@@ -341,7 +396,9 @@ if calculate_button:
         "Break-even Fernwärmepreis (€/MWh)",
     ].values[0]
 
-    st.subheader("Kombination mit dem höchsten Strompreis")
+    st.text(
+        "Die Preis-Kombination mit dem höchsten Fernwärmepreis liefert diese Preise:"
+    )
     st.write(f"Strompreis: {höchster_strompreis} €/MWh")
     st.write(f"Break-even Fernwärmepreis: {entsprechender_heizpreis} €/MWh")
 
@@ -351,11 +408,16 @@ if calculate_button:
         break_even_prices["Strompreis (€/MWh)"],
         break_even_prices["Break-even Fernwärmepreis (€/MWh)"],
     )
-    plt.xlabel("Strompreis (€/MWh)")
-    plt.ylabel("Break-even Fernwärmepreise (€/MWh)")
-    plt.title("Break-even Fernwärmepreise vs Strompreise")
+    plt.xlabel("Strompreis (€/MWh)", fontsize=14)
+    plt.ylabel("Break-even Fernwärmepreise (€/MWh)", fontsize=14)
+    plt.title("Break-even Fernwärmepreise vs Strompreise", fontsize=14)
     st.pyplot(fig5)
-
+    st.subheader("Jährliche thermische Abwärme- und Wärmebedarfsprofile")
+    st.text("Die Profile zeigen die thermische Last in kWh pro Tag.")
+    st.text(
+        "Das Differenzprofil ergibt sich aus Differenz Abwärmeprofil - Wärmebedarfsprofil"
+    )
+    st.text("Tag 1 ist der 10.Oktober 2022 und Tag 365 ist der 9.Oktober 2023")
     # Plot Profile
     input_profile["Mismatch"] = (
         input_profile["Quellkapazität"] - sink_profile["Senkenkapazität"]
@@ -365,15 +427,17 @@ if calculate_button:
     ax6.plot(
         input_profile[zeitperiode],
         input_profile["Quellkapazität"],
-        label="Quellprofil",
+        label="Abwärmeprofil Wärmepumpe",
     )
     ax6.plot(
-        sink_profile[zeitperiode], sink_profile["Senkenkapazität"], label="Senkenprofil"
+        sink_profile[zeitperiode],
+        sink_profile["Senkenkapazität"],
+        label="Wärmebedarfsprofil (Eigenbedarf)",
     )
     ax6.plot(
         input_profile[zeitperiode],
         input_profile["Mismatch"],
-        label="Mismatch",
+        label="Differenz Abwärme-Bedarf",
         color="purple",
     )
 
@@ -387,11 +451,10 @@ if calculate_button:
         label="Negative Mismatch",
     )
 
-    ax6.set_xlabel("Zeit" if zeitperiode == "Hour" else "Tag")
-    ax6.set_ylabel("Kapazität (kW)")
+    ax6.set_xlabel("Zeit" if zeitperiode == "Hour" else "Tag", fontsize=14)
+    ax6.set_ylabel("Thermische Last (kWh)", fontsize=14)
     ax6.legend()
-    plt.title("Quell-, Senken- und Mismatch-Profile")
+    plt.title("Abwärme-, Wärmebedarf- und Differenz-Profile", fontsize=14)
 
     st.pyplot(fig6)
     # -----------------------------------------------------------------------------------------------
-
