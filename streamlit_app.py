@@ -151,7 +151,7 @@ if calculate_button:
     # Dynamisches Finden des Sink Profils
     sink_profile_dir = "output_sinks_daily"
     sink_profiles = os.listdir(sink_profile_dir)
-    sink_profile_name = next((name for name in sink_profiles if name.startswith(f"daily_{standort.split()[-1]}_")), None)
+    sink_profile_name = next((name for name in sink_profiles if name.startswith(f"daily_{standort.split()[-1]}_*")), None)
     
     if not sink_profile_name:
         st.error("Kein passendes Senkenprofil gefunden.")
