@@ -1,4 +1,4 @@
-from tkinter import font
+#from tkinter import font
 from matplotlib.pylab import f
 import streamlit as st
 import pandas as pd
