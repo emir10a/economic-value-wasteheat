@@ -1,4 +1,4 @@
-#from tkinter import font
+# from tkinter import font
 from matplotlib.pylab import f
 import streamlit as st
 import pandas as pd
@@ -152,12 +152,16 @@ if end_button:
 
 if calculate_button:
     # Laden der Profile basierend auf der Auswahl des Standorts
+    base_path = os.path.dirname(__file__)
+    sources_profile_dir = "output_sources_daily"
+    sources_profile_dir = os.path.join(base_path, sources_profile_dir)
     input_profile_path = os.path.join(
-        "output_sources_daily", f"daily_hourly_profile_{standort.split()[-1]}.xlsx"
+        sources_profile_dir, f"daily_hourly_profile_{standort.split()[-1]}.xlsx"
     )
 
     # Dynamisches Finden des Sink Profils
     sink_profile_dir = "output_sinks_daily"
+    sink_profile_dir = os.path.join(base_path, sink_profile_dir)
     sink_profiles = os.listdir(sink_profile_dir)
     sink_profile_name = next(
         (
