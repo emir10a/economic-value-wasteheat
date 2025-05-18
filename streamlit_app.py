@@ -94,18 +94,19 @@ def berechne_npv(
         ].values[0]
         mismatch = wärme_pumpe - wärmebedarf
         fernwärme_kosten = wärmebedarf / 1000 * heizpreis
-        if mismatch > 0:
+        if mismatch >= 0:
             perioden_npv = fernwärme_kosten - (wärmebedarf * strompreis / 1000 / cop)
         else:
             perioden_npv = (
                 wärme_pumpe / cop * strompreis / 1000
-            ) + mismatch * heizpreis / 1000
+            ) + (mismatch * heizpreis / 1000)
 
         npv += perioden_npv
         total_electricity_costs += wärme_pumpe / cop * strompreis / 1000
         total_district_heating_costs += fernwärme_kosten
 
     roi = (npv - angepasste_investition) / angepasste_investition
+    npv = npv - angepasste_investition
     return (
         npv,
         max_kapazität,
