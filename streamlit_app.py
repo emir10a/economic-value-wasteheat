@@ -106,7 +106,8 @@ def berechne_npv(
         total_district_heating_costs += fernwärme_kosten
 
     roi = (npv - angepasste_investition) / angepasste_investition
-    npv = npv - angepasste_investition
+    npv = npv
+    #- angepasste_investition
     return (
         npv,
         max_kapazität,
